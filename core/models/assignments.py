@@ -60,10 +60,24 @@ class Assignment(db.Model):
         return assignment
 
     @classmethod
+    def update_grade(cls, _id, grade, principal: Principal):
+        assignment = Assignment.get_by_id(_id)
+        assertions.assert_found(assignment, 'No assignment with this id was found')
+        assertions.assert_valid(assignment.teacher_id and assignment.teacher_id == principal.teacher_id, 'wrong teacher id')
+        assertions.assert_valid(assignment.state == AssignmentStateEnum.SUBMITTED,'only assignment in submitted state can be graded')
+        assertions.assert_valid(grade is not None, 'grade cannot be empty')
+        assertions.assert_exist(grade in list(GradeEnum), 'Invalid grade')
+        assignment.grade = GradeEnum[grade]
+        assignment.state = AssignmentStateEnum.GRADED
+        db.session.flush()
+        return assignment
+
+    @classmethod
     def submit(cls, _id, teacher_id, principal: Principal):
         assignment = Assignment.get_by_id(_id)
         assertions.assert_found(assignment, 'No assignment with this id was found')
         assertions.assert_valid(assignment.student_id == principal.student_id, 'This assignment belongs to some other student')
+        assertions.assert_valid(assignment.state == AssignmentStateEnum.DRAFT,'only a draft assignment can be submitted')
         assertions.assert_valid(assignment.content is not None, 'assignment with empty content cannot be submitted')
 
         assignment.teacher_id = teacher_id
@@ -75,3 +89,7 @@ class Assignment(db.Model):
     @classmethod
     def get_assignments_by_student(cls, student_id):
         return cls.filter(cls.student_id == student_id).all()
+    
+    @classmethod
+    def get_assignments_for_teacher(cls, teacher_id):
+        return cls.filter(cls.teacher_id == teacher_id).all()
